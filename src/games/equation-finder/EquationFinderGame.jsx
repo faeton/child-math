@@ -20,6 +20,8 @@ const EquationFinderGame = () => {
   const [animatingCorrect, setAnimatingCorrect] = useState(false);
   const [randomDefault, setRandomDefault] = useState(getRandomDefault());
   const [showSummary, setShowSummary] = useState(false);
+  const [optionCount, setOptionCount] = useState(3);
+  
   const [gameStats, setGameStats] = useState({
     correct: 0,
     wrong: 0,
@@ -45,6 +47,22 @@ const EquationFinderGame = () => {
       timeSpent: elapsedTime
     }));
   }, [elapsedTime]);
+  
+  // Get recommended option count based on target number
+  const getRecommendedOptionCount = (targetNum) => {
+    if (targetNum <= 10) return 3;
+    if (targetNum <= 15) return 6;
+    return 9;
+  };
+
+  // Update option count when target number changes
+  useEffect(() => {
+    const parsedTarget = parseInt(inputTarget || randomDefault);
+    if (!isNaN(parsedTarget) && parsedTarget >= 5) {
+      const recommended = getRecommendedOptionCount(parsedTarget);
+      setOptionCount(recommended);
+    }
+  }, [inputTarget, randomDefault]);
   
   // Generate random equation
   const generateEquation = (targetSum) => {
@@ -126,34 +144,6 @@ const EquationFinderGame = () => {
     }
   };
   
-  // Calculate appropriate number of equations based on target
-  const calculateEquationCounts = (target) => {
-    // Default minimum is 1 correct answer and 4 total options for number 5
-    // Then scale up based on the target number
-    
-    if (target < 5) {
-      return { correctCount: 1, totalCount: 4 };
-    }
-    
-    // For numbers 5-7
-    if (target <= 7) {
-      return { correctCount: 1, totalCount: 4 };
-    }
-    
-    // For numbers 8-9
-    if (target <= 9) {
-      return { correctCount: 2, totalCount: 6 };
-    }
-    
-    // For numbers 10-15
-    if (target <= 15) {
-      return { correctCount: 3, totalCount: 8 };
-    }
-    
-    // For numbers 16+
-    return { correctCount: 4, totalCount: 12 };
-  };
-  
   // Start a new game
   const startGame = () => {
     // Use input value if provided, otherwise use the random default
@@ -173,9 +163,9 @@ const EquationFinderGame = () => {
     setInputError('');
     setTargetNumber(targetInput);
     
-    // Calculate appropriate counts
-    const { correctCount, totalCount } = calculateEquationCounts(targetInput);
-    const wrongCount = totalCount - correctCount;
+    // Calculate how many correct equations to include based on option count
+    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
+    const wrongCount = optionCount - correctCount;
     
     // Generate correct equations
     const correctEquations = Array(correctCount).fill().map(() => generateEquation(targetInput));
@@ -224,9 +214,9 @@ const EquationFinderGame = () => {
     // Use the same target number as before (don't change it)
     const currentTarget = targetNumber;
     
-    // Calculate appropriate counts
-    const { correctCount, totalCount } = calculateEquationCounts(currentTarget);
-    const wrongCount = totalCount - correctCount;
+    // Calculate how many correct equations to include based on option count
+    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
+    const wrongCount = optionCount - correctCount;
     
     // Generate correct equations
     const correctEquations = Array(correctCount).fill().map(() => generateEquation(currentTarget));
@@ -369,13 +359,16 @@ const EquationFinderGame = () => {
                     setInputTarget(e.target.value);
                     setInputError('');
                   }}
-                  className={`w-full p-2 mt-2 border-2 ${inputError ? 'border-red-500' : 'border-blue-300'} rounded-lg text-xl`}
+                  className={`w-full p-2 mt-2 border-2 ${inputError ? 'border-red-500' : 'border-blue-300'} rounded-lg text-xl text-gray-700 bg-white`}
                   placeholder={`Enter a number (default: ${randomDefault})`}
                 />
               </label>
               {inputError && (
                 <p className="text-red-500 text-sm mt-1">{inputError}</p>
               )}
+              <p className="text-sm text-gray-600 -mt-2">
+                Recommended: 5-10 for younger children, 10-20 for more challenge
+              </p>
               
               <div className="mt-4">
                 <p className="text-lg font-medium mb-2">Choose operation type: 🧮</p>
@@ -416,6 +409,30 @@ const EquationFinderGame = () => {
                 </div>
               </div>
               
+              <div className="mt-4">
+                <p className="text-lg font-medium mb-2">
+                  Number of equations: 🔢 
+                  <span className="text-sm text-gray-500 font-normal ml-2">
+                    (Recommended: {optionCount})
+                  </span>
+                </p>
+                <div className="flex gap-3">
+                  {[3, 6, 9].map(num => (
+                    <button
+                      key={num}
+                      onClick={() => setOptionCount(num)}
+                      className={`flex-1 py-2 rounded-lg border-2 transition-colors ${
+                        optionCount === num 
+                          ? 'bg-blue-500 text-white border-blue-500' 
+                          : 'bg-white text-blue-600 border-blue-300 hover:bg-blue-50'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <button
                 onClick={startGame}
                 className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors mt-4"
@@ -441,12 +458,13 @@ const EquationFinderGame = () => {
             
             {!showSummary && (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                {/* Always using 3 columns grid layout */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
                   {equations.map((eq) => (
                     <button
                       key={eq.id}
                       onClick={() => handleEquationClick(eq.id, eq.sum)}
-                      className={`p-3 rounded-lg text-lg font-medium ${
+                      className={`p-3 rounded-lg text-md font-medium ${
                         selectedEquations.includes(eq.id)
                           ? 'bg-green-500 text-white'
                           : wrongEquations.includes(eq.id)

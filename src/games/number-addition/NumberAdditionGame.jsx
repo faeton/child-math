@@ -21,11 +21,11 @@ const NumberAdditionGame = () => {
   const [maxNumberInput, setMaxNumberInput] = useState("10");
   const [maxNumber, setMaxNumber] = useState(10);
   const [setupError, setSetupError] = useState('');
-  const [optionCount, setOptionCount] = useState(4);
+  const [optionCount, setOptionCount] = useState(3);
   
   // Timing constants (in milliseconds)
-  const CORRECT_ANSWER_DELAY = 500; // Reduced from 1000ms to 500ms
-  const CORRECTION_CLICK_DELAY = 300; // Reduced from 500ms to 300ms
+  const CORRECT_ANSWER_DELAY = 500; 
+  const CORRECTION_CLICK_DELAY = 300; 
   
   // Stats state
   const [gameStats, setGameStats] = useState({
@@ -49,9 +49,9 @@ const NumberAdditionGame = () => {
 
   // Get recommended option count based on max number
   const getRecommendedOptionCount = (maxNum) => {
-    if (maxNum <= 10) return 4;
+    if (maxNum <= 10) return 3;
     if (maxNum <= 15) return 6;
-    return 8;
+    return 9;
   };
 
   // Update option count when max number changes
@@ -292,7 +292,7 @@ const NumberAdditionGame = () => {
                   </span>
                 </p>
                 <div className="flex gap-3">
-                  {[4, 6, 8].map(num => (
+                  {[3, 6, 9].map(num => (
                     <button
                       key={num}
                       onClick={() => setOptionCount(num)}
@@ -357,8 +357,8 @@ const NumberAdditionGame = () => {
                   )}
                 </div>
                 
-                {/* Answer options */}
-                <div className={`grid ${optionCount <= 4 ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
+                {/* Answer options - Always using 3 columns */}
+                <div className="grid grid-cols-3 gap-3">
                   {options.map((option, index) => (
                     <button
                       key={index}
