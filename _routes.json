@@ -1,8 +1,9 @@
 {
-    "version": 1,
-    "include": ["/*"],
-    "exclude": ["/_assets/*"],
-    "paths": {
-      "/*": { "spa": true }
-    }
-  }
+  "version": 1,
+  "include": ["/*"],
+  "exclude": ["/_assets/*"],
+  "paths": {
+    "/*": { "spa": true }
+  },
+  "build_id": "2025-03-15-1"
+}
