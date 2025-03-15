@@ -36,6 +36,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: math-game
+          projectName: child-math
           directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

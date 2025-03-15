@@ -1,5 +1,5 @@
 # wrangler.toml
-name = "math-game"
+name = "child-math"
 compatibility_date = "2023-01-01"
 
 [site]
