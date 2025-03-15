@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import StatsTracker from '../../components/StatsTracker';
+import { useGameTimer } from '../../utils/game-timer-util';
 
-const MathGame = () => {
+const EquationFinderGame = () => {
   // Generate a random default number between 5 and 99
   const getRandomDefault = () => Math.floor(Math.random() * 95) + 5;
   
@@ -17,6 +19,17 @@ const MathGame = () => {
   const [operationType, setOperationType] = useState('addition');
   const [animatingCorrect, setAnimatingCorrect] = useState(false);
   const [randomDefault, setRandomDefault] = useState(getRandomDefault());
+  const [showSummary, setShowSummary] = useState(false);
+  const [gameStats, setGameStats] = useState({
+    correct: 0,
+    wrong: 0,
+    total: 0,
+    slow: 0,
+    timeSpent: 0
+  });
+  
+  // Use our custom timer hook
+  const { elapsedTime, resetTimer } = useGameTimer(gameStarted, showSummary);
   
   // Set a new random default whenever game is reset
   useEffect(() => {
@@ -24,25 +37,52 @@ const MathGame = () => {
       setRandomDefault(getRandomDefault());
     }
   }, [gameStarted]);
+
+  // Update gameStats with the current elapsed time
+  useEffect(() => {
+    setGameStats(prev => ({
+      ...prev,
+      timeSpent: elapsedTime
+    }));
+  }, [elapsedTime]);
   
   // Generate random equation
   const generateEquation = (targetSum) => {
     if (operationType === 'addition') {
-      const num1 = Math.floor(Math.random() * targetSum);
+      // Ensure we avoid trivial equations with +0 by setting a minimum of 1 for each number
+      const min = 1;
+      const max = targetSum - 1;
+      // Handle edge case for very small target sums
+      if (min >= max) {
+        return { equation: `${min} + ${targetSum - min}`, sum: targetSum, id: Math.random() };
+      }
+      const num1 = min + Math.floor(Math.random() * (max - min));
       const num2 = targetSum - num1;
       return { equation: `${num1} + ${num2}`, sum: targetSum, id: Math.random() };
     } else if (operationType === 'subtraction') {
-      const num1 = targetSum + Math.floor(Math.random() * 10) + 1;
+      // For subtraction, make sure we don't have trivial equations with -0
+      const min = targetSum + 1; // Ensure first number is at least target+1
+      const max = targetSum + 10; // Limit how high we go
+      const num1 = min + Math.floor(Math.random() * (max - min));
       const num2 = num1 - targetSum;
       return { equation: `${num1} - ${num2}`, sum: targetSum, id: Math.random() };
     } else {
       // Both operations
       if (Math.random() > 0.5) {
-        const num1 = Math.floor(Math.random() * targetSum);
+        // Addition with non-zero operands
+        const min = 1;
+        const max = targetSum - 1;
+        if (min >= max) {
+          return { equation: `${min} + ${targetSum - min}`, sum: targetSum, id: Math.random() };
+        }
+        const num1 = min + Math.floor(Math.random() * (max - min));
         const num2 = targetSum - num1;
         return { equation: `${num1} + ${num2}`, sum: targetSum, id: Math.random() };
       } else {
-        const num1 = targetSum + Math.floor(Math.random() * 10) + 1;
+        // Subtraction with non-zero results
+        const min = targetSum + 1;
+        const max = targetSum + 10;
+        const num1 = min + Math.floor(Math.random() * (max - min));
         const num2 = num1 - targetSum;
         return { equation: `${num1} - ${num2}`, sum: targetSum, id: Math.random() };
       }
@@ -158,12 +198,28 @@ const MathGame = () => {
     setGameStarted(true);
     setGameComplete(false);
     setAnimatingCorrect(false);
+    setShowSummary(false);
+    setGameStats({
+      correct: 0,
+      wrong: 0,
+      total: 0,
+      slow: 0,
+      timeSpent: 0
+    });
+    
+    // Reset the timer
+    resetTimer();
   };
   
   // Reset animatingCorrect when starting a new round
   const startNewRound = () => {
     setAnimatingCorrect(false);
     setInputTarget(''); // Clear the input for the next round
+    // Update stats before starting a new round
+    setGameStats(prev => ({
+      ...prev,
+      total: prev.total + 1
+    }));
     startGame(); // This will use a new random default
   };
   
@@ -175,10 +231,18 @@ const MathGame = () => {
       // Correct!
       setSelectedEquations(prev => [...prev, id]);
       setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
+      setGameStats(prev => ({
+        ...prev,
+        correct: prev.correct + 1
+      }));
     } else {
       // Wrong!
       setWrongEquations(prev => [...prev, id]);
       setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
+      setGameStats(prev => ({
+        ...prev,
+        wrong: prev.wrong + 1
+      }));
       
       // Remove from wrongEquations after a delay
       setTimeout(() => {
@@ -197,12 +261,37 @@ const MathGame = () => {
     setScore({ correct: 0, wrong: 0 });
     setGameStarted(false);
     setGameComplete(false);
+    setShowSummary(false);
+    setGameStats({
+      correct: 0,
+      wrong: 0,
+      total: 0,
+      slow: 0,
+      timeSpent: 0
+    });
+    resetTimer();
     // This will trigger the useEffect to set a new random default
+  };
+
+  // Handle finish button click
+  const handleFinish = () => {
+    setShowSummary(true);
+  };
+
+  // Handle resume game
+  const handleResume = () => {
+    setShowSummary(false);
+    // Timer will automatically resume due to the useGameTimer hook
+  };
+
+  // Handle restart game
+  const handleRestart = () => {
+    resetGame();
   };
   
   // Check if all correct equations are found
   useEffect(() => {
-    if (!gameStarted) return;
+    if (!gameStarted || showSummary) return;
     
     const correctEquationsCount = equations.filter(eq => eq.sum === targetNumber).length;
     if (selectedEquations.length === correctEquationsCount && correctEquationsCount > 0) {
@@ -231,14 +320,14 @@ const MathGame = () => {
         clearInterval(countdownInterval);
       };
     }
-  }, [selectedEquations, equations, targetNumber, gameStarted]);
+  }, [selectedEquations, equations, targetNumber, gameStarted, showSummary]);
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-blue-50 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
         {!gameStarted ? (
           <>
-            <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">🔢 Math Equations Game 🧠</h1>
+            <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">🔢 Equation Finder Challenge 🧠</h1>
             <div className="flex flex-col gap-4">
               <label className="text-lg font-medium">
                 Choose a target number: 🎯
@@ -311,66 +400,63 @@ const MathGame = () => {
               Find all equations that equal <span className="font-bold text-2xl text-blue-700">🎯 {targetNumber}</span>
             </h2>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-              {equations.map((eq) => (
-                <button
-                  key={eq.id}
-                  onClick={() => handleEquationClick(eq.id, eq.sum)}
-                  className={`p-3 rounded-lg text-lg font-medium ${
-                    selectedEquations.includes(eq.id)
-                      ? 'bg-green-500 text-white'
-                      : wrongEquations.includes(eq.id)
-                        ? 'bg-red-500 text-white'
-                        : 'bg-blue-200 hover:bg-blue-300'
-                  }`}
-                  style={{
-                    transform: !selectedEquations.includes(eq.id) && animatingCorrect ? 'scale(0)' : 'scale(1)',
-                    opacity: !selectedEquations.includes(eq.id) && animatingCorrect ? 0 : 1,
-                    transition: 'transform 0.5s ease, opacity 0.5s ease, background-color 0.3s ease'
-                  }}
-                  disabled={selectedEquations.includes(eq.id)}
-                >
-                  {eq.equation}
-                </button>
-              ))}
-            </div>
+            {/* Stats Tracker Component */}
+            <StatsTracker 
+              stats={gameStats}
+              showSummary={showSummary}
+              onFinish={handleFinish}
+              onResume={handleResume}
+              onRestart={handleRestart}
+            />
             
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-lg">
-                <span className="font-bold text-green-600">✅ Correct: {score.correct}</span>
-              </div>
-              <div className="text-lg">
-                <span className="font-bold text-red-600">❌ Wrong: {score.wrong}</span>
-              </div>
-            </div>
-            
-            {gameComplete && (
-              <div className="mt-4 flex flex-col gap-4">
-                <div className="bg-green-100 p-4 rounded-lg text-center">
-                  <p className="text-lg font-bold text-green-700">🎉 Great job! You found all equations! 🌟</p>
+            {!showSummary && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                  {equations.map((eq) => (
+                    <button
+                      key={eq.id}
+                      onClick={() => handleEquationClick(eq.id, eq.sum)}
+                      className={`p-3 rounded-lg text-lg font-medium ${
+                        selectedEquations.includes(eq.id)
+                          ? 'bg-green-500 text-white'
+                          : wrongEquations.includes(eq.id)
+                            ? 'bg-red-500 text-white'
+                            : 'bg-blue-200 hover:bg-blue-300'
+                      }`}
+                      style={{
+                        transform: !selectedEquations.includes(eq.id) && animatingCorrect ? 'scale(0)' : 'scale(1)',
+                        opacity: !selectedEquations.includes(eq.id) && animatingCorrect ? 0 : 1,
+                        transition: 'transform 0.5s ease, opacity 0.5s ease, background-color 0.3s ease'
+                      }}
+                      disabled={selectedEquations.includes(eq.id)}
+                    >
+                      {eq.equation}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  onClick={startNewRound}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors relative overflow-hidden"
-                >
-                  <span>⏭️ Next Round ({countdown})</span>
-                  <div 
-                    className="absolute bottom-0 left-0 h-1 bg-yellow-300" 
-                    style={{ 
-                      width: `${(countdown / 2) * 100}%`,
-                      transition: 'width 0.5s linear'
-                    }}
-                  ></div>
-                </button>
-              </div>
+                
+                {gameComplete && (
+                  <div className="mt-4 flex flex-col gap-4">
+                    <div className="bg-green-100 p-4 rounded-lg text-center">
+                      <p className="text-lg font-bold text-green-700">🎉 Great job! You found all equations! 🌟</p>
+                    </div>
+                    <button
+                      onClick={startNewRound}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors relative overflow-hidden"
+                    >
+                      <span>⏭️ Next Round ({countdown})</span>
+                      <div 
+                        className="absolute bottom-0 left-0 h-1 bg-yellow-300" 
+                        style={{ 
+                          width: `${(countdown / 2) * 100}%`,
+                          transition: 'width 0.5s linear'
+                        }}
+                      ></div>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
-            
-            <button
-              onClick={resetGame}
-              className="w-full mt-4 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition-colors"
-            >
-              🔄 Reset Game
-            </button>
           </>
         )}
       </div>
@@ -378,4 +464,4 @@ const MathGame = () => {
   );
 };
 
-export default MathGame;
+export default EquationFinderGame;
