@@ -5,12 +5,14 @@ import { formatTime, calculateAverageTime } from '../utils/game-timer-util';
 const StatsTracker = ({ stats, showSummary, onFinish, onResume, onRestart }) => {
   const { correct, wrong, total, slow, timeSpent } = stats;
   
-  // Calculate percentage score
-  const scorePercentage = total > 0 ? Math.round((correct / total) * 100) : 0;
+  // Calculate percentage score - it should be based on correct vs total attempts (correct + wrong)
+  // not correct vs total rounds
+  const totalAttempts = correct + wrong;
+  const scorePercentage = totalAttempts > 0 ? Math.round((correct / totalAttempts) * 100) : 0;
   
   // Generate a performance message
   const getPerformanceMessage = () => {
-    if (total < 5) return "Keep going to see your performance!";
+    if (totalAttempts < 5) return "Keep going to see your performance!";
     if (scorePercentage >= 90) return "Excellent work! You're a math superstar! 🌟";
     if (scorePercentage >= 75) return "Great job! You're doing well! 👍";
     if (scorePercentage >= 60) return "Good effort! Keep practicing! 💪";
@@ -66,7 +68,7 @@ const StatsTracker = ({ stats, showSummary, onFinish, onResume, onRestart }) => 
               <p className="text-2xl font-bold text-red-600">{wrong}</p>
             </div>
             <div className="bg-yellow-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">Total Attempted</p>
+              <p className="text-sm text-gray-600">Rounds Completed</p>
               <p className="text-2xl font-bold text-yellow-600">{total}</p>
             </div>
             <div className="bg-orange-50 p-3 rounded-lg">
@@ -81,7 +83,7 @@ const StatsTracker = ({ stats, showSummary, onFinish, onResume, onRestart }) => 
               <p className="text-2xl font-bold text-purple-600">{formatTime(timeSpent)}</p>
             </div>
             <div className="bg-blue-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">Avg. Time per Answer</p>
+              <p className="text-sm text-gray-600">Avg. Time</p>
               <p className="text-2xl font-bold text-blue-600">{calculateAverageTime(timeSpent, total)}s</p>
             </div>
           </div>
@@ -108,9 +110,6 @@ const StatsTracker = ({ stats, showSummary, onFinish, onResume, onRestart }) => 
           </div>
         </div>
       )}
-      
-      {/* Finish button at the bottom of the game */}
-      {/* Removed full-width button since we now have the emoji button in the stats bar */}
     </div>
   );
 };

@@ -199,13 +199,6 @@ const EquationFinderGame = () => {
     setGameComplete(false);
     setAnimatingCorrect(false);
     setShowSummary(false);
-    setGameStats({
-      correct: 0,
-      wrong: 0,
-      total: 0,
-      slow: 0,
-      timeSpent: 0
-    });
     
     // Reset the timer
     resetTimer();
@@ -215,12 +208,45 @@ const EquationFinderGame = () => {
   const startNewRound = () => {
     setAnimatingCorrect(false);
     setInputTarget(''); // Clear the input for the next round
-    // Update stats before starting a new round
+    
+    // Update stats before starting a new round - increment the total rounds counter
     setGameStats(prev => ({
       ...prev,
       total: prev.total + 1
     }));
-    startGame(); // This will use a new random default
+    
+    // Generate a new round without resetting gameStats
+    generateNewRound();
+  };
+  
+  // Generate a new round without resetting game stats
+  const generateNewRound = () => {
+    // Use the same target number as before (don't change it)
+    const currentTarget = targetNumber;
+    
+    // Calculate appropriate counts
+    const { correctCount, totalCount } = calculateEquationCounts(currentTarget);
+    const wrongCount = totalCount - correctCount;
+    
+    // Generate correct equations
+    const correctEquations = Array(correctCount).fill().map(() => generateEquation(currentTarget));
+    
+    // Generate wrong equations
+    const wrongEquations = Array(wrongCount).fill().map(() => generateWrongEquation(currentTarget));
+    
+    // Combine and shuffle
+    const allEquations = [...correctEquations, ...wrongEquations];
+    for (let i = allEquations.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allEquations[i], allEquations[j]] = [allEquations[j], allEquations[i]];
+    }
+    
+    // Keep the same target number, just update the equations
+    setEquations(allEquations);
+    setSelectedEquations([]);
+    setWrongEquations([]);
+    setGameComplete(false);
+    setAnimatingCorrect(false);
   };
   
   // Handle equation selection
@@ -230,6 +256,8 @@ const EquationFinderGame = () => {
     if (sum === targetNumber) {
       // Correct!
       setSelectedEquations(prev => [...prev, id]);
+      
+      // Update both the local score and the cumulative game stats
       setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
       setGameStats(prev => ({
         ...prev,
@@ -238,6 +266,8 @@ const EquationFinderGame = () => {
     } else {
       // Wrong!
       setWrongEquations(prev => [...prev, id]);
+      
+      // Update both the local score and the cumulative game stats
       setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
       setGameStats(prev => ({
         ...prev,
