@@ -2,18 +2,9 @@
 name = "child-math"
 compatibility_date = "2023-01-01"
 
-[env.production]
-routes = [
-  { pattern = "/*", script = "" }
-]
+[observability]
+enabled = true
+head_sampling_rate = 1 # optional. default = 1.
 
-[env.production.site]
-spa = true
-
-[env.staging]
-routes = [
-  { pattern = "/*", script = "" }
-]
-
-[env.staging.site]
+[env]
 spa = true
