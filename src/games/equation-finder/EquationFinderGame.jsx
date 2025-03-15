@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import StatsTracker from '../../components/StatsTracker';
 import { useGameTimer } from '../../utils/game-timer-util';
+import OptionCountSelector, { useOptionCount } from '../../components/OptionCountSelector';
 
 const EquationFinderGame = () => {
-  // Generate a random default number between 5 and 99
+  // Helper functions defined first, before any state
   const getRandomDefault = () => Math.floor(Math.random() * 95) + 5;
   
+  const getRecommendedOptionCount = (targetNum) => {
+    if (!targetNum) return 3;
+    if (targetNum <= 10) return 3;
+    if (targetNum <= 15) return 6;
+    return 9;
+  };
+  
+  // All state variables
   const [targetNumber, setTargetNumber] = useState('');
   const [inputTarget, setInputTarget] = useState('');
   const [inputError, setInputError] = useState('');
+  const [randomDefault, setRandomDefault] = useState(getRandomDefault());
   const [equations, setEquations] = useState([]);
   const [score, setScore] = useState({ correct: 0, wrong: 0 });
   const [selectedEquations, setSelectedEquations] = useState([]);
@@ -18,9 +28,7 @@ const EquationFinderGame = () => {
   const [countdown, setCountdown] = useState(2);
   const [operationType, setOperationType] = useState('addition');
   const [animatingCorrect, setAnimatingCorrect] = useState(false);
-  const [randomDefault, setRandomDefault] = useState(getRandomDefault());
   const [showSummary, setShowSummary] = useState(false);
-  const [optionCount, setOptionCount] = useState(3);
   
   const [gameStats, setGameStats] = useState({
     correct: 0,
@@ -30,40 +38,16 @@ const EquationFinderGame = () => {
     timeSpent: 0
   });
   
-  // Use our custom timer hook
+  // Custom hooks
   const { elapsedTime, resetTimer } = useGameTimer(gameStarted, showSummary);
   
-  // Set a new random default whenever game is reset
-  useEffect(() => {
-    if (!gameStarted) {
-      setRandomDefault(getRandomDefault());
-    }
-  }, [gameStarted]);
-
-  // Update gameStats with the current elapsed time
-  useEffect(() => {
-    setGameStats(prev => ({
-      ...prev,
-      timeSpent: elapsedTime
-    }));
-  }, [elapsedTime]);
+  const [optionCount, setOptionCount, recommendedCount, resetOptionCountSelection] = useOptionCount(
+    3, 
+    getRecommendedOptionCount,
+    parseInt(inputTarget || randomDefault)
+  );
   
-  // Get recommended option count based on target number
-  const getRecommendedOptionCount = (targetNum) => {
-    if (targetNum <= 10) return 3;
-    if (targetNum <= 15) return 6;
-    return 9;
-  };
-
-  // Update option count when target number changes
-  useEffect(() => {
-    const parsedTarget = parseInt(inputTarget || randomDefault);
-    if (!isNaN(parsedTarget) && parsedTarget >= 5) {
-      const recommended = getRecommendedOptionCount(parsedTarget);
-      setOptionCount(recommended);
-    }
-  }, [inputTarget, randomDefault]);
-  
+  // All function definitions
   // Generate random equation
   const generateEquation = (targetSum) => {
     if (operationType === 'addition') {
@@ -144,6 +128,49 @@ const EquationFinderGame = () => {
     }
   };
   
+  const generateNewRound = () => {
+    // Use the same target number as before (don't change it)
+    const currentTarget = targetNumber;
+    
+    // Calculate how many correct equations to include based on option count
+    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
+    const wrongCount = optionCount - correctCount;
+    
+    // Generate correct equations
+    const correctEquations = Array(correctCount).fill().map(() => generateEquation(currentTarget));
+    
+    // Generate wrong equations
+    const wrongEquations = Array(wrongCount).fill().map(() => generateWrongEquation(currentTarget));
+    
+    // Combine and shuffle
+    const allEquations = [...correctEquations, ...wrongEquations];
+    for (let i = allEquations.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allEquations[i], allEquations[j]] = [allEquations[j], allEquations[i]];
+    }
+    
+    // Keep the same target number, just update the equations
+    setEquations(allEquations);
+    setSelectedEquations([]);
+    setWrongEquations([]);
+    setGameComplete(false);
+    setAnimatingCorrect(false);
+  };
+  
+  const startNewRound = () => {
+    setAnimatingCorrect(false);
+    setInputTarget(''); // Clear the input for the next round
+    
+    // Update stats before starting a new round - increment the total rounds counter
+    setGameStats(prev => ({
+      ...prev,
+      total: prev.total + 1
+    }));
+    
+    // Generate a new round without resetting gameStats
+    generateNewRound();
+  };
+  
   // Start a new game
   const startGame = () => {
     // Use input value if provided, otherwise use the random default
@@ -194,51 +221,6 @@ const EquationFinderGame = () => {
     resetTimer();
   };
   
-  // Reset animatingCorrect when starting a new round
-  const startNewRound = () => {
-    setAnimatingCorrect(false);
-    setInputTarget(''); // Clear the input for the next round
-    
-    // Update stats before starting a new round - increment the total rounds counter
-    setGameStats(prev => ({
-      ...prev,
-      total: prev.total + 1
-    }));
-    
-    // Generate a new round without resetting gameStats
-    generateNewRound();
-  };
-  
-  // Generate a new round without resetting game stats
-  const generateNewRound = () => {
-    // Use the same target number as before (don't change it)
-    const currentTarget = targetNumber;
-    
-    // Calculate how many correct equations to include based on option count
-    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
-    const wrongCount = optionCount - correctCount;
-    
-    // Generate correct equations
-    const correctEquations = Array(correctCount).fill().map(() => generateEquation(currentTarget));
-    
-    // Generate wrong equations
-    const wrongEquations = Array(wrongCount).fill().map(() => generateWrongEquation(currentTarget));
-    
-    // Combine and shuffle
-    const allEquations = [...correctEquations, ...wrongEquations];
-    for (let i = allEquations.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allEquations[i], allEquations[j]] = [allEquations[j], allEquations[i]];
-    }
-    
-    // Keep the same target number, just update the equations
-    setEquations(allEquations);
-    setSelectedEquations([]);
-    setWrongEquations([]);
-    setGameComplete(false);
-    setAnimatingCorrect(false);
-  };
-  
   // Handle equation selection
   const handleEquationClick = (id, sum) => {
     if (selectedEquations.includes(id) || wrongEquations.includes(id)) return;
@@ -282,6 +264,7 @@ const EquationFinderGame = () => {
     setGameStarted(false);
     setGameComplete(false);
     setShowSummary(false);
+    resetOptionCountSelection();
     setGameStats({
       correct: 0,
       wrong: 0,
@@ -308,6 +291,23 @@ const EquationFinderGame = () => {
   const handleRestart = () => {
     resetGame();
   };
+  
+  // Effects
+  
+  // Set a new random default whenever game is reset
+  useEffect(() => {
+    if (!gameStarted) {
+      setRandomDefault(getRandomDefault());
+    }
+  }, [gameStarted]);
+
+  // Update gameStats with the current elapsed time
+  useEffect(() => {
+    setGameStats(prev => ({
+      ...prev,
+      timeSpent: elapsedTime
+    }));
+  }, [elapsedTime]);
   
   // Check if all correct equations are found
   useEffect(() => {
@@ -342,6 +342,7 @@ const EquationFinderGame = () => {
     }
   }, [selectedEquations, equations, targetNumber, gameStarted, showSummary]);
 
+  // JSX return
   return (
     <div className="flex flex-col items-center min-h-screen bg-blue-50 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
@@ -409,29 +410,13 @@ const EquationFinderGame = () => {
                 </div>
               </div>
               
-              <div className="mt-4">
-                <p className="text-lg font-medium mb-2">
-                  Number of equations: 🔢 
-                  <span className="text-sm text-gray-500 font-normal ml-2">
-                    (Recommended: {optionCount})
-                  </span>
-                </p>
-                <div className="flex gap-3">
-                  {[3, 6, 9].map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setOptionCount(num)}
-                      className={`flex-1 py-2 rounded-lg border-2 transition-colors ${
-                        optionCount === num 
-                          ? 'bg-blue-500 text-white border-blue-500' 
-                          : 'bg-white text-blue-600 border-blue-300 hover:bg-blue-50'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <OptionCountSelector
+                value={optionCount}
+                onChange={setOptionCount}
+                recommendedValue={recommendedCount}
+                label="Number of equations:"
+                emoji="🔢"
+              />
               
               <button
                 onClick={startGame}

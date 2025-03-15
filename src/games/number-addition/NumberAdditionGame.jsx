@@ -1,8 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import StatsTracker from '../../components/StatsTracker';
 import { useGameTimer } from '../../utils/game-timer-util';
+import OptionCountSelector, { useOptionCount } from '../../components/OptionCountSelector';
 
 const NumberAdditionGame = () => {
+  // Setup state
+  const [maxNumberInput, setMaxNumberInput] = useState("10");
+  const [maxNumber, setMaxNumber] = useState(10);
+  const [setupError, setSetupError] = useState('');
+  
+  // Get recommended option count based on max number
+  const getRecommendedOptionCount = (maxNum) => {
+    if (!maxNum) return 3;
+    if (maxNum <= 10) return 3;
+    if (maxNum <= 15) return 6;
+    return 9;
+  };
+  
+  // Use the custom hook for option count
+  const [optionCount, setOptionCount, recommendedCount, resetOptionCountSelection] = useOptionCount(
+    3, 
+    getRecommendedOptionCount,
+    parseInt(maxNumberInput)
+  );
+  
   // Game state
   const [currentProblem, setCurrentProblem] = useState(null);
   const [options, setOptions] = useState([]);
@@ -15,17 +36,7 @@ const NumberAdditionGame = () => {
   const [isCorrect, setIsCorrect] = useState(null);
   const [waitingForCorrection, setWaitingForCorrection] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  
-  // Setup state
   const [gameStarted, setGameStarted] = useState(false);
-  const [maxNumberInput, setMaxNumberInput] = useState("10");
-  const [maxNumber, setMaxNumber] = useState(10);
-  const [setupError, setSetupError] = useState('');
-  const [optionCount, setOptionCount] = useState(3);
-  
-  // Timing constants (in milliseconds)
-  const CORRECT_ANSWER_DELAY = 500; 
-  const CORRECTION_CLICK_DELAY = 300; 
   
   // Stats state
   const [gameStats, setGameStats] = useState({
@@ -35,6 +46,10 @@ const NumberAdditionGame = () => {
     slow: 0,
     timeSpent: 0
   });
+  
+  // Timing constants (in milliseconds)
+  const CORRECT_ANSWER_DELAY = 500; 
+  const CORRECTION_CLICK_DELAY = 300; 
   
   // Use our custom timer hook
   const { elapsedTime, resetTimer } = useGameTimer(gameStarted, showSummary);
@@ -46,22 +61,6 @@ const NumberAdditionGame = () => {
       timeSpent: elapsedTime
     }));
   }, [elapsedTime]);
-
-  // Get recommended option count based on max number
-  const getRecommendedOptionCount = (maxNum) => {
-    if (maxNum <= 10) return 3;
-    if (maxNum <= 15) return 6;
-    return 9;
-  };
-
-  // Update option count when max number changes
-  useEffect(() => {
-    const parsedMaxNumber = parseInt(maxNumberInput);
-    if (!isNaN(parsedMaxNumber) && parsedMaxNumber >= 5 && parsedMaxNumber <= 20) {
-      const recommended = getRecommendedOptionCount(parsedMaxNumber);
-      setOptionCount(recommended);
-    }
-  }, [maxNumberInput]);
 
   // Generate a new math problem
   const generateProblem = () => {
@@ -167,6 +166,7 @@ const NumberAdditionGame = () => {
   const resetGame = () => {
     setGameStarted(false);
     setShowSummary(false);
+    resetOptionCountSelection();
   };
   
   // Timer effect for the question timeout
@@ -284,29 +284,13 @@ const NumberAdditionGame = () => {
                 Recommended: 5-10 for younger children, 10-20 for more challenge
               </p>
               
-              <div className="mt-4">
-                <p className="text-lg font-medium mb-2">
-                  Number of answer choices: 🔢 
-                  <span className="text-sm text-gray-500 font-normal ml-2">
-                    (Recommended: {optionCount})
-                  </span>
-                </p>
-                <div className="flex gap-3">
-                  {[3, 6, 9].map(num => (
-                    <button
-                      key={num}
-                      onClick={() => setOptionCount(num)}
-                      className={`flex-1 py-2 rounded-lg border-2 transition-colors ${
-                        optionCount === num 
-                          ? 'bg-blue-500 text-white border-blue-500' 
-                          : 'bg-white text-blue-600 border-blue-300 hover:bg-blue-50'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <OptionCountSelector
+                value={optionCount}
+                onChange={setOptionCount}
+                recommendedValue={recommendedCount}
+                label="Number of answer choices:"
+                emoji="🔢"
+              />
               
               <button
                 onClick={startGame}
