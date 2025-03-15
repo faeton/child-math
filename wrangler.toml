@@ -2,25 +2,15 @@
 name = "child-math"
 compatibility_date = "2023-01-01"
 
-[site]
-bucket = "./dist"
-
-[build]
-command = "npm run build"
-output_dir = "dist"
-
 [env.production]
-# Production-specific settings
 routes = [
   { pattern = "/*", script = "" }
 ]
 
-# Enable Single Page Application handling
 [env.production.site]
 spa = true
 
 [env.staging]
-# Staging-specific settings if needed
 routes = [
   { pattern = "/*", script = "" }
 ]
