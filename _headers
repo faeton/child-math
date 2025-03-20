@@ -16,12 +16,18 @@
   Pragma: no-cache
   Expires: 0
 
-# Cache assets
-/assets/*
-  Cache-Control: public, max-age=31536000, immutable
+# For service worker
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
 
-# Cache JS/CSS files
+# Reduced caching for JavaScript application files
 /*.js
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=3600
 /*.css
+  Cache-Control: public, max-age=3600
+
+# Long caching only for content-addressed assets (with hashes in filename)
+/assets/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f]*.*
   Cache-Control: public, max-age=31536000, immutable
