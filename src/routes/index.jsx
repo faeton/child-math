@@ -1,9 +1,25 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import GameCard from '../components/GameCard';
 import MainLayout from '../layouts/MainLayout';
 import gamesList from '../games';
+import { useGameContext } from '../context/GameContext';
 
 const HomePage = () => {
+  const { gameStarted, actions } = useGameContext();
+  
+  // Use a ref to track if we've already reset the game state
+  const hasReset = useRef(false);
+  
+  // Reset game state when arriving at home page
+  // but only do it once per page load
+  useEffect(() => {
+    if (!hasReset.current && gameStarted) {
+      // End any existing game when landing on home page
+      actions.endGame();
+      hasReset.current = true;
+    }
+  }, [actions, gameStarted]);
+  
   return (
     <MainLayout>
       <div className="container mx-auto py-8 px-4">

@@ -8,17 +8,32 @@ src/
 │   └── Footer.jsx        # Application footer
 ├── config/               # Configuration files
 │   └── games.js          # Platform-wide configuration
+├── context/              # React context providers
+│   └── GameContext.jsx   # Shared game state management
 ├── games/                # Individual games
 │   ├── index.js          # Games registry
-│   └── math-game/        # Math Equations Game
-│       ├── MathGame.jsx  # Game component
+│   ├── equation-finder/  # Equation Finder Game
+│   │   ├── EquationFinderGame.jsx  # Game component
+│   │   └── index.js      # Game exports
+│   ├── number-addition/  # Number Addition Game  
+│   │   ├── NumberAdditionGame.jsx  # Game component
+│   │   └── index.js      # Game exports
+│   └── quick-calc/       # Quick Calc Game
+│       ├── QuickCalcGame.jsx  # Game component
 │       └── index.js      # Game exports
+├── hooks/                # Custom React hooks
+│   ├── useGameEngine.js  # Shared game logic
+│   ├── useEquationFinder.js  # Equation Finder game logic
+│   ├── useNumberAddition.js  # Number Addition game logic
+│   └── useQuickCalc.js   # Quick Calc game logic
 ├── layouts/              # Layout components
 │   └── MainLayout.jsx    # Main application layout
 ├── routes/               # Route components
 │   ├── index.jsx         # Home page (game chooser)
 │   ├── GamePage.jsx      # Individual game page
 │   └── NotFound.jsx      # 404 page
+├── utils/                # Utility functions
+│   └── game-timer-util.js # Timer utilities for games
 ├── App.jsx               # Main application component with routing
 ├── App.css               # Application-specific styles
 ├── index.css             # Global styles
@@ -36,14 +51,21 @@ To add a new game to the platform, follow these steps:
    src/games/your-new-game/
    ```
 
-2. **Create the main game component**:
+2. **Create game-specific hook**:
+   
+   Create a hook for your game's logic in `src/hooks/`:
+   ```
+   src/hooks/useYourNewGame.js
+   ```
+
+3. **Create the main game component**:
    
    Create your main game component file:
    ```
    src/games/your-new-game/YourNewGame.jsx
    ```
 
-3. **Create an index.js file**:
+4. **Create an index.js file**:
    
    Create an index.js file that exports your game:
    ```javascript
@@ -52,7 +74,7 @@ To add a new game to the platform, follow these steps:
    export default YourNewGame;
    ```
 
-4. **Register the game in the games index**:
+5. **Register the game in the games index**:
    
    Add your game to the games list in `src/games/index.js`:
    ```javascript
@@ -86,15 +108,19 @@ To add a new game to the platform, follow these steps:
 
 When creating a new game, follow these guidelines:
 
-1. **Self-contained components**: Each game should be a self-contained component that manages its own state.
+1. **Shared State Management**: Use the GameContext for shared state like scores, settings, etc.
 
-2. **Responsive design**: All games should be responsive and work well on various screen sizes.
+2. **Hooks-Based Logic**: Put game-specific logic in a custom hook (e.g., `useYourGame.js`)
 
-3. **Consistent UI**: Use the platform's color scheme and UI components when possible for a consistent user experience.
+3. **Self-contained components**: Each game should be a self-contained component that connects to the shared context.
 
-4. **Educational focus**: Games should have clear educational objectives and provide feedback to users.
+4. **Responsive design**: All games should be responsive and work well on various screen sizes.
 
-5. **Accessibility**: Ensure games are accessible to users with disabilities.
+5. **Consistent UI**: Use the platform's color scheme and UI components when possible for a consistent user experience.
+
+6. **Educational focus**: Games should have clear educational objectives and provide feedback to users.
+
+7. **Accessibility**: Ensure games are accessible to users with disabilities.
 
 ## Cloudflare Pages Deployment
 
@@ -114,16 +140,35 @@ To deploy:
 npm run deploy
 ```
 
-## Future Enhancements
+## Known Issues & Future Enhancements
 
-Planned enhancements for the platform include:
+### Known Issues
 
-1. User accounts and progress tracking
-2. Achievement system
-3. Difficulty settings
-4. Analytics to track game usage
-5. Dark mode support
-6. Additional educational games
+1. **Equation Finder Game**: 
+   - Option count inconsistency: First round sometimes ignores the selected number of options
+   - Operations selection: Sometimes defaults to addition regardless of selected operation type
+
+2. **Game Navigation**:
+   - Occasional reset issues when navigating between games
+   - Slow transition between game rounds
+
+3. **Quick Calc Game**:
+   - Input focus issues on mobile devices
+   - Occasional incorrect answer validation
+
+### Planned Enhancements
+
+1. **User accounts and progress tracking**
+2. **Achievement system**
+3. **Difficulty settings that adapt to player performance**
+4. **Analytics to track game usage**
+5. **Dark mode support**
+6. **Additional educational games:**
+   - Multiplication Tables
+   - Fraction Comparison
+   - Shape Recognition
+   - Pattern Completion
+   - Word Problems
 
 ## Troubleshooting
 
@@ -133,3 +178,4 @@ If you encounter issues with the platform, check the following:
 2. Verify that your game component is properly exported and registered
 3. Check browser console for any JavaScript errors
 4. Ensure the routes are correctly defined in `App.jsx`
+5. Verify that your game hook is properly handling state and game logic

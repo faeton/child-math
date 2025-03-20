@@ -1,30 +1,38 @@
-// Import games
 import EquationFinderGame from './equation-finder';
 import NumberAdditionGame from './number-addition';
+import QuickCalcGame from './quick-calc';
 
-// Define game metadata
 const gamesList = [
   {
     id: 'equation-finder',
-    title: 'Equation Finder Challenge',
-    description: 'Find all equations that equal the target number. Great for practicing addition and subtraction skills.',
+    title: 'Equation Finder',
+    description: 'Find all equations that equal the target number',
     icon: '🔢',
     color: 'blue',
-    difficulty: 2,
-    ageRange: '5-10',
+    difficulty: 3,
+    ageRange: '8-12',
     component: EquationFinderGame,
   },
   {
     id: 'number-addition',
-    title: 'Number Addition Challenge',
-    description: 'Practice addition with multiple choice answers. Race against the clock to improve your math skills!',
-    icon: '🧮',
+    title: 'Number Addition',
+    description: 'Solve simple addition problems',
+    icon: '➕',
     color: 'green',
     difficulty: 1,
-    ageRange: '3-7',
+    ageRange: '5-8',
     component: NumberAdditionGame,
   },
-  // More games will be added here in the future
+  {
+    id: 'quick-calc',
+    title: 'Quick Calc',
+    description: 'Solve math problems by typing the answers',
+    icon: '🧮',
+    color: 'purple',
+    difficulty: 2,
+    ageRange: '7-12',
+    component: QuickCalcGame,
+  }
 ];
 
 export default gamesList;

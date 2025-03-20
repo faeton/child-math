@@ -1,375 +1,213 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useGameContext } from '../../context/GameContext';
 import StatsTracker from '../../components/StatsTracker';
-import { useGameTimer } from '../../utils/game-timer-util';
-import OptionCountSelector, { useOptionCount } from '../../components/OptionCountSelector';
+import GameSetup from '../../components/GameSetup';
+import useNumberAddition from '../../hooks/useNumberAddition';
 
 const NumberAdditionGame = () => {
-  // Setup state
-  const [maxNumberInput, setMaxNumberInput] = useState("10");
-  const [maxNumber, setMaxNumber] = useState(10);
-  const [setupError, setSetupError] = useState('');
+  // Local state to track game UI state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const initRef = useRef(false);
   
-  // Get recommended option count based on max number
-  const getRecommendedOptionCount = (maxNum) => {
-    if (!maxNum) return 3;
-    if (maxNum <= 10) return 3;
-    if (maxNum <= 15) return 6;
-    return 9;
+  const { gameStarted, showSummary, stats, actions } = useGameContext();
+  
+  // Use our custom game hook
+  const {
+    currentProblem,
+    options,
+    isCorrect,
+    waitingForCorrection,
+    timer,
+    showWarning,
+    handleAnswer,
+    initGame
+  } = useNumberAddition();
+  
+  // Game setup configuration
+  const setupFields = [
+    {
+      type: 'number',
+      name: 'maxNumber',
+      label: 'Choose a maximum number:',
+      emoji: '🎯',
+      min: 5,
+      max: 20,
+      placeholder: 'Enter a number (5-20)',
+      hint: 'Recommended: 5-10 for younger children, 10-20 for more challenge',
+      required: true
+    },
+    {
+      type: 'optionCount',
+      name: 'optionCount',
+      label: 'Number of answer choices:',
+      emoji: '🔢'
+    }
+  ];
+  
+  // Initial values
+  const initialValues = {
+    maxNumber: '10',
+    optionCount: 3
   };
   
-  // Use the custom hook for option count
-  const [optionCount, setOptionCount, recommendedCount, resetOptionCountSelection] = useOptionCount(
-    3, 
-    getRecommendedOptionCount,
-    parseInt(maxNumberInput)
-  );
-  
-  // Game state
-  const [currentProblem, setCurrentProblem] = useState(null);
-  const [options, setOptions] = useState([]);
-  const [score, setScore] = useState(0);
-  const [wrongAnswers, setWrongAnswers] = useState(0);
-  const [totalAttempted, setTotalAttempted] = useState(0);
-  const [slowResponses, setSlowResponses] = useState(0);
-  const [timer, setTimer] = useState(0);
-  const [showWarning, setShowWarning] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(null);
-  const [waitingForCorrection, setWaitingForCorrection] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  
-  // Stats state
-  const [gameStats, setGameStats] = useState({
-    correct: 0,
-    wrong: 0,
-    total: 0,
-    slow: 0,
-    timeSpent: 0
-  });
-  
-  // Timing constants (in milliseconds)
-  const CORRECT_ANSWER_DELAY = 500; 
-  const CORRECTION_CLICK_DELAY = 300; 
-  
-  // Use our custom timer hook
-  const { elapsedTime, resetTimer } = useGameTimer(gameStarted, showSummary);
-
-  // Update gameStats with the current elapsed time
-  useEffect(() => {
-    setGameStats(prev => ({
-      ...prev,
-      timeSpent: elapsedTime
-    }));
-  }, [elapsedTime]);
-
-  // Generate a new math problem
-  const generateProblem = () => {
-    // Adjust range based on maxNumber setting
-    // Avoid trivial problems with +0 by ensuring num1 and num2 are at least 1
-    const num1 = 1 + Math.floor(Math.random() * (maxNumber - 1));
-    const num2 = 1 + Math.floor(Math.random() * (maxNumber - num1));
-    const correctAnswer = num1 + num2;
+  // Handle game start
+  const handleStartGame = (values) => {
+    console.log('Starting Number Addition game with values:', values);
     
-    // Create more challenging wrong answers that require more thought
-    const generateChallengeOption = () => {
-      // Different strategies to create plausible wrong answers
-      const strategies = [
-        // Off by 1 or 2 (common mistake)
-        () => correctAnswer + (Math.random() > 0.5 ? 1 : -1) * (Math.random() > 0.5 ? 1 : 2),
-        // Swapped digits if answer is two digits
-        () => {
-          if (correctAnswer >= 10) {
-            const tens = Math.floor(correctAnswer / 10);
-            const ones = correctAnswer % 10;
-            return ones * 10 + tens;
-          } else {
-            return correctAnswer + Math.floor(Math.random() * 5) + 1;
-          }
-        },
-        // Using one of the operands as answer (common beginner mistake)
-        () => Math.random() > 0.5 ? num1 : num2,
-        // Wrong operation (subtraction instead of addition)
-        () => Math.abs(num1 - num2),
-        // Random but close to correct answer
-        () => correctAnswer + Math.floor(Math.random() * 5) - 2
-      ];
-      
-      // Pick random strategy
-      const strategy = strategies[Math.floor(Math.random() * strategies.length)];
-      let wrongAnswer = strategy();
-      
-      // Ensure the wrong answer is positive and not the same as the correct answer
-      if (wrongAnswer <= 0 || wrongAnswer === correctAnswer) {
-        wrongAnswer = 1 + Math.floor(Math.random() * (maxNumber * 2 - 1));
-        if (wrongAnswer === correctAnswer) wrongAnswer++;
-      }
-      
-      return wrongAnswer;
+    // Convert string values to appropriate types
+    const gameSettings = {
+      maxNumber: parseInt(values.maxNumber) || 10,
+      optionCount: parseInt(values.optionCount) || 3
     };
     
-    // Generate wrong answers
-    let incorrectOptions = [];
-    const neededOptions = optionCount - 1; // -1 because we'll add the correct answer
+    console.log('Game settings prepared:', gameSettings);
     
-    while (incorrectOptions.length < neededOptions) {
-      const wrongAnswer = generateChallengeOption();
-      if (!incorrectOptions.includes(wrongAnswer) && wrongAnswer !== correctAnswer) {
-        incorrectOptions.push(wrongAnswer);
-      }
-    }
+    // Start the game with these settings
+    actions.startGame(gameSettings);
     
-    // Combine correct and incorrect answers, then shuffle
-    const allOptions = [correctAnswer, ...incorrectOptions];
-    for (let i = allOptions.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allOptions[i], allOptions[j]] = [allOptions[j], allOptions[i]];
-    }
+    // Set local playing state
+    setIsPlaying(true);
     
-    setCurrentProblem({ num1, num2, correctAnswer });
-    setOptions(allOptions);
-    setTimer(0);
-    setShowWarning(false);
-    setIsCorrect(null);
-    setWaitingForCorrection(false);
-  };
-
-  // Start the game
-  const startGame = () => {
-    const parsedMaxNumber = parseInt(maxNumberInput);
-    
-    if (isNaN(parsedMaxNumber) || parsedMaxNumber < 5 || parsedMaxNumber > 20) {
-      setSetupError('Please enter a number between 5 and 20');
-      return;
-    }
-    
-    setMaxNumber(parsedMaxNumber);
-    setSetupError('');
-    setGameStarted(true);
-    setScore(0);
-    setWrongAnswers(0);
-    setTotalAttempted(0);
-    setSlowResponses(0);
-    setShowSummary(false);
-    setGameStats({
-      correct: 0,
-      wrong: 0,
-      total: 0,
-      slow: 0,
-      timeSpent: 0
-    });
-    
-    generateProblem();
-    resetTimer();
-  };
-
-  // Reset the game
-  const resetGame = () => {
-    setGameStarted(false);
-    setShowSummary(false);
-    resetOptionCountSelection();
+    // Reset initialization ref
+    initRef.current = false;
   };
   
-  // Timer effect for the question timeout
+  // Explicit initialization of the game
   useEffect(() => {
-    if (!gameStarted || isCorrect !== null || showSummary) return;
-    
-    const interval = setInterval(() => {
-      setTimer(prevTimer => {
-        const newTimer = prevTimer + 1;
-        
-        // Check if time is up (10 seconds)
-        if (newTimer >= 10 && !showWarning) {
-          setShowWarning(true);
-          setSlowResponses(prev => prev + 1);
-          setGameStats(prev => ({
-            ...prev,
-            slow: prev.slow + 1
-          }));
-        }
-        
-        return newTimer;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [gameStarted, showWarning, isCorrect, showSummary]);
-
-  // Handle answer selection
-  const handleAnswer = (selectedAnswer) => {
-    // If already waiting for correction, only allow clicking the correct answer
-    if (waitingForCorrection) {
-      if (selectedAnswer === currentProblem.correctAnswer) {
-        // Move to next question after clicking the correct answer - FASTER
-        setTimeout(() => {
-          generateProblem();
-        }, CORRECTION_CLICK_DELAY);
-      }
-      return;
-    }
-    
-    if (isCorrect !== null && !waitingForCorrection) return; // Prevent multiple answers
-    
-    const correct = selectedAnswer === currentProblem.correctAnswer;
-    setIsCorrect(correct);
-    
-    if (correct) {
-      // Correct answer
-      setScore(prev => prev + 1);
-      setTotalAttempted(prev => prev + 1);
-      setGameStats(prev => ({
-        ...prev,
-        correct: prev.correct + 1,
-        total: prev.total + 1
-      }));
-      
-      // Move to next question automatically after delay - FASTER
+    if (gameStarted && !initRef.current) {
+      console.log('Explicitly initializing the Number Addition game');
+      // Add a slight delay to ensure context is updated
       setTimeout(() => {
-        generateProblem();
-      }, CORRECT_ANSWER_DELAY);
-    } else {
-      // Wrong answer
-      setWrongAnswers(prev => prev + 1);
-      setGameStats(prev => ({
-        ...prev,
-        wrong: prev.wrong + 1
-      }));
-      setWaitingForCorrection(true);
-      // Don't increment totalAttempted yet, wait for correct click
+        try {
+          initGame();
+          initRef.current = true;
+          console.log('Number Addition game initialized');
+        } catch (error) {
+          console.error('Error initializing game:', error);
+        }
+      }, 50);
     }
-  };
-
-  // Handle finish button click
+  }, [gameStarted, initGame]);
+  
+  // Handle showing game summary
   const handleFinish = () => {
-    setShowSummary(true);
+    actions.showGameSummary();
   };
-
-  // Handle resume game
+  
+  // Handle resuming game
   const handleResume = () => {
-    setShowSummary(false);
+    actions.hideGameSummary();
   };
-
-  // Handle restart game
+  
+  // Handle restarting game
   const handleRestart = () => {
-    resetGame();
+    setIsPlaying(false);
+    actions.endGame();
+    initRef.current = false;
   };
-
-  // Main app rendering
+  
+  // Sync our local playing state with gameStarted
+  useEffect(() => {
+    if (!gameStarted && isPlaying) {
+      setIsPlaying(false);
+    } else if (gameStarted && !isPlaying) {
+      setIsPlaying(true);
+    }
+  }, [gameStarted, isPlaying]);
+  
+  // Log the current state for debugging
+  useEffect(() => {
+    console.log('Number Addition Game state:', {
+      gameStarted,
+      showSummary,
+      hasProblem: Boolean(currentProblem),
+      hasOptions: Boolean(options) && options.length > 0
+    });
+  }, [gameStarted, showSummary, currentProblem, options]);
+  
   return (
     <div className="flex flex-col items-center min-h-screen bg-blue-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
-        {!gameStarted ? (
-          // Setup Screen
-          <>
-            <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">🧮 Number Addition Challenge! 🧮</h1>
-            <div className="flex flex-col gap-4">
-              <label className="text-lg font-medium">
-                Choose a maximum number: 🎯
-                <input
-                  type="number"
-                  min="5"
-                  max="20"
-                  value={maxNumberInput}
-                  onChange={(e) => {
-                    setMaxNumberInput(e.target.value);
-                    setSetupError('');
-                  }}
-                  className={`w-full p-2 mt-2 border-2 ${setupError ? 'border-red-500' : 'border-blue-300'} rounded-lg text-xl text-gray-700 bg-white`}
-                  placeholder="Enter a number (5-20)"
-                />
-              </label>
-              {setupError && (
-                <p className="text-red-500 text-sm mt-1">{setupError}</p>
-              )}
-              <p className="text-sm text-gray-600 -mt-2">
-                Recommended: 5-10 for younger children, 10-20 for more challenge
-              </p>
-              
-              <OptionCountSelector
-                value={optionCount}
-                onChange={setOptionCount}
-                recommendedValue={recommendedCount}
-                label="Number of answer choices:"
-                emoji="🔢"
-              />
-              
-              <button
-                onClick={startGame}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors mt-4"
-              >
-                Start Game 🚀
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold text-center text-blue-600 mb-4">🧮 Number Addition Challenge!</h1>
-            
-            {/* Stats Tracker Component */}
-            <StatsTracker 
-              stats={gameStats}
-              showSummary={showSummary}
-              onFinish={handleFinish}
-              onResume={handleResume}
-              onRestart={handleRestart}
-            />
-            
-            {!showSummary && (
-              <>
-                {/* Problem display */}
-                <div className="text-center mb-6">
-                  <div className="text-4xl font-bold">
-                    {currentProblem?.num1} + {currentProblem?.num2} = ?
-                  </div>
-                  
-                  {/* Timer display */}
-                  <div className="mt-2 text-gray-500">
-                    Time: {timer} seconds
-                  </div>
-                  
-                  {/* Slow warning */}
-                  {showWarning && (
-                    <div className="mt-2 text-red-500 font-semibold animate-pulse">
-                      Hurry up! You're taking too long!
-                    </div>
-                  )}
-                  
-                  {/* Waiting for correction instruction */}
-                  {waitingForCorrection && (
-                    <div className="mt-2 text-orange-500 font-semibold">
-                      Find the correct answer!
-                    </div>
-                  )}
+      {!isPlaying ? (
+        <GameSetup
+          title="Number Addition Challenge"
+          logoEmoji="🧮"
+          fields={setupFields}
+          initialValues={initialValues}
+          onStart={handleStartGame}
+        />
+      ) : (
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+          <h1 className="text-2xl font-bold text-center text-blue-600 mb-4">🧮 Number Addition Challenge!</h1>
+          
+          {/* Stats Tracker Component */}
+          <StatsTracker 
+            stats={stats}
+            showSummary={showSummary}
+            onFinish={handleFinish}
+            onResume={handleResume}
+            onRestart={handleRestart}
+          />
+          
+          {!showSummary && currentProblem && options && options.length > 0 ? (
+            <>
+              {/* Problem display */}
+              <div className="text-center mb-6">
+                <div className="text-4xl font-bold">
+                  {currentProblem.num1} + {currentProblem.num2} = ?
                 </div>
                 
-                {/* Answer options - Always using 3 columns */}
-                <div className="grid grid-cols-3 gap-3">
-                  {options.map((option, index) => (
-                    <button
-                      key={index}
-                      className={`py-4 text-xl font-bold rounded-lg shadow transition-colors duration-200 
-                        ${waitingForCorrection
-                          ? option === currentProblem.correctAnswer 
-                            ? 'bg-green-500 text-white animate-pulse' 
-                            : 'bg-red-200 text-gray-600' 
-                          : isCorrect === true && option === currentProblem.correctAnswer
-                            ? 'bg-green-500 text-white'
-                            : isCorrect === false && option === currentProblem.correctAnswer
-                              ? 'bg-green-500 text-white animate-pulse'
-                              : isCorrect === false && option !== currentProblem.correctAnswer
-                                ? 'bg-red-200 text-gray-600'
-                                : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-                      onClick={() => handleAnswer(option)}
-                      disabled={isCorrect === true && !waitingForCorrection}
-                    >
-                      {option}
-                    </button>
-                  ))}
+                {/* Timer display */}
+                <div className="mt-2 text-gray-500">
+                  Time: {timer} seconds
                 </div>
-              </>
-            )}
-          </>
-        )}
-      </div>
+                
+                {/* Slow warning */}
+                {showWarning && (
+                  <div className="mt-2 text-red-500 font-semibold animate-pulse">
+                    Hurry up! You're taking too long!
+                  </div>
+                )}
+                
+                {/* Waiting for correction instruction */}
+                {waitingForCorrection && (
+                  <div className="mt-2 text-orange-500 font-semibold">
+                    Find the correct answer!
+                  </div>
+                )}
+              </div>
+              
+              {/* Answer options - Always using 3 columns */}
+              <div className="grid grid-cols-3 gap-3">
+                {options.map((option, index) => (
+                  <button
+                    key={index}
+                    className={`py-4 text-xl font-bold rounded-lg shadow transition-colors duration-200 
+                      ${waitingForCorrection
+                        ? option === currentProblem.correctAnswer 
+                          ? 'bg-green-500 text-white animate-pulse' 
+                          : 'bg-red-200 text-gray-600' 
+                        : isCorrect === true && option === currentProblem.correctAnswer
+                          ? 'bg-green-500 text-white'
+                          : isCorrect === false && option === currentProblem.correctAnswer
+                            ? 'bg-green-500 text-white animate-pulse'
+                            : isCorrect === false && option !== currentProblem.correctAnswer
+                              ? 'bg-red-200 text-gray-600'
+                              : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                    onClick={() => handleAnswer(option)}
+                    disabled={isCorrect === true && !waitingForCorrection}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : !showSummary && (
+            <div className="flex justify-center items-center h-40">
+              <div className="text-blue-500 text-lg">Loading game...</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,498 +1,246 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useGameContext } from '../../context/GameContext';
 import StatsTracker from '../../components/StatsTracker';
-import { useGameTimer } from '../../utils/game-timer-util';
-import OptionCountSelector, { useOptionCount } from '../../components/OptionCountSelector';
+import GameSetup from '../../components/GameSetup';
+import useEquationFinder from '../../hooks/useEquationFinder';
 
 const EquationFinderGame = () => {
-  // Helper functions defined first, before any state
-  const getRandomDefault = () => Math.floor(Math.random() * 95) + 5;
+  // Local state to track game UI state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const initRef = useRef(false);
   
-  const getRecommendedOptionCount = (targetNum) => {
-    if (!targetNum) return 3;
-    if (targetNum <= 10) return 3;
-    if (targetNum <= 15) return 6;
-    return 9;
+  const { gameStarted, showSummary, stats, actions } = useGameContext();
+  
+  // Use our custom game hook
+  const {
+    currentProblem,
+    equations,
+    selectedEquations,
+    wrongEquations,
+    gameComplete,
+    animatingCorrect,
+    countdown,
+    initGame,
+    handleEquationClick,
+    setCountdown,
+    startNewRound
+  } = useEquationFinder();
+  
+  // Advanced handling for game round transitions
+  const handleNextRound = () => {
+    setIsTransitioning(true);
+    actions.incrementTotalRounds();
+    
+    // Use timeout to ensure UI update before next round
+    setTimeout(() => {
+      startNewRound();
+      setIsTransitioning(false);
+    }, 200);
   };
   
-  // All state variables
-  const [targetNumber, setTargetNumber] = useState('');
-  const [inputTarget, setInputTarget] = useState('');
-  const [inputError, setInputError] = useState('');
-  const [randomDefault, setRandomDefault] = useState(getRandomDefault());
-  const [equations, setEquations] = useState([]);
-  const [score, setScore] = useState({ correct: 0, wrong: 0 });
-  const [selectedEquations, setSelectedEquations] = useState([]);
-  const [wrongEquations, setWrongEquations] = useState([]);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [gameComplete, setGameComplete] = useState(false);
-  const [countdown, setCountdown] = useState(2);
-  const [operationType, setOperationType] = useState('addition');
-  const [animatingCorrect, setAnimatingCorrect] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
-  
-  const [gameStats, setGameStats] = useState({
-    correct: 0,
-    wrong: 0,
-    total: 0,
-    slow: 0,
-    timeSpent: 0
-  });
-  
-  // Custom hooks
-  const { elapsedTime, resetTimer } = useGameTimer(gameStarted, showSummary);
-  
-  const [optionCount, setOptionCount, recommendedCount, resetOptionCountSelection] = useOptionCount(
-    3, 
-    getRecommendedOptionCount,
-    parseInt(inputTarget || randomDefault)
-  );
-  
-  // All function definitions
-  // Generate random equation
-  const generateEquation = (targetSum) => {
-    if (operationType === 'addition') {
-      // Ensure we avoid trivial equations with +0 by setting a minimum of 1 for each number
-      const min = 1;
-      const max = targetSum - 1;
-      // Handle edge case for very small target sums
-      if (min >= max) {
-        return { equation: `${min} + ${targetSum - min}`, sum: targetSum, id: Math.random() };
-      }
-      const num1 = min + Math.floor(Math.random() * (max - min));
-      const num2 = targetSum - num1;
-      return { equation: `${num1} + ${num2}`, sum: targetSum, id: Math.random() };
-    } else if (operationType === 'subtraction') {
-      // For subtraction, make sure we don't have trivial equations with -0
-      const min = targetSum + 1; // Ensure first number is at least target+1
-      const max = targetSum + 10; // Limit how high we go
-      const num1 = min + Math.floor(Math.random() * (max - min));
-      const num2 = num1 - targetSum;
-      return { equation: `${num1} - ${num2}`, sum: targetSum, id: Math.random() };
-    } else {
-      // Both operations
-      if (Math.random() > 0.5) {
-        // Addition with non-zero operands
-        const min = 1;
-        const max = targetSum - 1;
-        if (min >= max) {
-          return { equation: `${min} + ${targetSum - min}`, sum: targetSum, id: Math.random() };
-        }
-        const num1 = min + Math.floor(Math.random() * (max - min));
-        const num2 = targetSum - num1;
-        return { equation: `${num1} + ${num2}`, sum: targetSum, id: Math.random() };
-      } else {
-        // Subtraction with non-zero results
-        const min = targetSum + 1;
-        const max = targetSum + 10;
-        const num1 = min + Math.floor(Math.random() * (max - min));
-        const num2 = num1 - targetSum;
-        return { equation: `${num1} - ${num2}`, sum: targetSum, id: Math.random() };
-      }
-    }
-  };
-  
-  // Generate wrong equation that's more challenging
-  const generateWrongEquation = (targetSum) => {
-    // Create a wrong sum that's closer to the target for more challenge
-    // We'll generate sums that are +/- 1-3 from the target
-    let wrongSum;
-    const offset = Math.floor(Math.random() * 3) + 1;
-    
-    // 50% chance to be above or below the target
-    if (Math.random() > 0.5) {
-      wrongSum = targetSum + offset;
-    } else {
-      wrongSum = Math.max(1, targetSum - offset); // Ensure we don't go below 1
-    }
-    
-    if (operationType === 'addition') {
-      // Make the equation look plausible by using numbers close to what might be in correct equations
-      const num1 = Math.floor(Math.random() * (targetSum + 2));
-      const num2 = wrongSum - num1;
-      return { equation: `${num1} + ${num2}`, sum: wrongSum, id: Math.random() };
-    } else if (operationType === 'subtraction') {
-      const num1 = wrongSum + Math.floor(Math.random() * 5) + 5; // More varied first number
-      const num2 = num1 - wrongSum;
-      return { equation: `${num1} - ${num2}`, sum: wrongSum, id: Math.random() };
-    } else {
-      // Both operations
-      if (Math.random() > 0.5) {
-        const num1 = Math.floor(Math.random() * (targetSum + 2));
-        const num2 = wrongSum - num1;
-        return { equation: `${num1} + ${num2}`, sum: wrongSum, id: Math.random() };
-      } else {
-        const num1 = wrongSum + Math.floor(Math.random() * 5) + 5;
-        const num2 = num1 - wrongSum;
-        return { equation: `${num1} - ${num2}`, sum: wrongSum, id: Math.random() };
-      }
-    }
-  };
-  
-  const generateNewRound = () => {
-    // Use the same target number as before (don't change it)
-    const currentTarget = targetNumber;
-    
-    // Calculate how many correct equations to include based on option count
-    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
-    const wrongCount = optionCount - correctCount;
-    
-    // Generate correct equations
-    const correctEquations = Array(correctCount).fill().map(() => generateEquation(currentTarget));
-    
-    // Generate wrong equations
-    const wrongEquations = Array(wrongCount).fill().map(() => generateWrongEquation(currentTarget));
-    
-    // Combine and shuffle
-    const allEquations = [...correctEquations, ...wrongEquations];
-    for (let i = allEquations.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allEquations[i], allEquations[j]] = [allEquations[j], allEquations[i]];
-    }
-    
-    // Keep the same target number, just update the equations
-    setEquations(allEquations);
-    setSelectedEquations([]);
-    setWrongEquations([]);
-    setGameComplete(false);
-    setAnimatingCorrect(false);
-  };
-  
-  const startNewRound = () => {
-    setAnimatingCorrect(false);
-    setInputTarget(''); // Clear the input for the next round
-    
-    // Update stats before starting a new round - increment the total rounds counter
-    setGameStats(prev => ({
-      ...prev,
-      total: prev.total + 1
-    }));
-    
-    // Generate a new round without resetting gameStats
-    generateNewRound();
-  };
-  
-  // Start a new game
-  const startGame = () => {
-    // Use input value if provided, otherwise use the random default
-    const targetInput = inputTarget.trim() === '' ? randomDefault : parseInt(inputTarget);
-    
-    // Validate input is a number and at least 5
-    if (isNaN(targetInput)) {
-      setInputError('Please enter a valid number');
-      return;
-    }
-    
-    if (targetInput < 5) {
-      setInputError('Number must be at least 5');
-      return;
-    }
-    
-    setInputError('');
-    setTargetNumber(targetInput);
-    
-    // Calculate how many correct equations to include based on option count
-    const correctCount = Math.max(1, Math.ceil(optionCount / 3));
-    const wrongCount = optionCount - correctCount;
-    
-    // Generate correct equations
-    const correctEquations = Array(correctCount).fill().map(() => generateEquation(targetInput));
-    
-    // Generate wrong equations
-    const wrongEquations = Array(wrongCount).fill().map(() => generateWrongEquation(targetInput));
-    
-    // Combine and shuffle more thoroughly
-    const allEquations = [...correctEquations, ...wrongEquations];
-    
-    // Fisher-Yates shuffle algorithm for better randomization
-    for (let i = allEquations.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allEquations[i], allEquations[j]] = [allEquations[j], allEquations[i]];
-    }
-    
-    setEquations(allEquations);
-    setSelectedEquations([]);
-    setWrongEquations([]);
-    setGameStarted(true);
-    setGameComplete(false);
-    setAnimatingCorrect(false);
-    setShowSummary(false);
-    
-    // Reset the timer
-    resetTimer();
-  };
-  
-  // Handle equation selection
-  const handleEquationClick = (id, sum) => {
-    if (selectedEquations.includes(id) || wrongEquations.includes(id)) return;
-    
-    if (sum === targetNumber) {
-      // Correct!
-      setSelectedEquations(prev => [...prev, id]);
-      
-      // Update both the local score and the cumulative game stats
-      setScore(prev => ({ ...prev, correct: prev.correct + 1 }));
-      setGameStats(prev => ({
-        ...prev,
-        correct: prev.correct + 1
-      }));
-    } else {
-      // Wrong!
-      setWrongEquations(prev => [...prev, id]);
-      
-      // Update both the local score and the cumulative game stats
-      setScore(prev => ({ ...prev, wrong: prev.wrong + 1 }));
-      setGameStats(prev => ({
-        ...prev,
-        wrong: prev.wrong + 1
-      }));
-      
-      // Remove from wrongEquations after a delay
-      setTimeout(() => {
-        setWrongEquations(prev => prev.filter(eqId => eqId !== id));
-      }, 1000);
-    }
-  };
-  
-  // Reset the game completely
-  const resetGame = () => {
-    setInputTarget('');
-    setTargetNumber('');
-    setEquations([]);
-    setSelectedEquations([]);
-    setWrongEquations([]);
-    setScore({ correct: 0, wrong: 0 });
-    setGameStarted(false);
-    setGameComplete(false);
-    setShowSummary(false);
-    resetOptionCountSelection();
-    setGameStats({
-      correct: 0,
-      wrong: 0,
-      total: 0,
-      slow: 0,
-      timeSpent: 0
-    });
-    resetTimer();
-    // This will trigger the useEffect to set a new random default
-  };
-
-  // Handle finish button click
-  const handleFinish = () => {
-    setShowSummary(true);
-  };
-
-  // Handle resume game
-  const handleResume = () => {
-    setShowSummary(false);
-    // Timer will automatically resume due to the useGameTimer hook
-  };
-
-  // Handle restart game
-  const handleRestart = () => {
-    resetGame();
-  };
-  
-  // Effects
-  
-  // Set a new random default whenever game is reset
+  // Setup countdown effect
   useEffect(() => {
-    if (!gameStarted) {
-      setRandomDefault(getRandomDefault());
-    }
-  }, [gameStarted]);
-
-  // Update gameStats with the current elapsed time
-  useEffect(() => {
-    setGameStats(prev => ({
-      ...prev,
-      timeSpent: elapsedTime
-    }));
-  }, [elapsedTime]);
-  
-  // Check if all correct equations are found
-  useEffect(() => {
-    if (!gameStarted || showSummary) return;
-    
-    const correctEquationsCount = equations.filter(eq => eq.sum === targetNumber).length;
-    if (selectedEquations.length === correctEquationsCount && correctEquationsCount > 0) {
-      setGameComplete(true);
-      setCountdown(2);
-      setAnimatingCorrect(true);
-      
-      // Countdown timer
-      const countdownInterval = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            return 0;
-          }
-          return prev - 1;
-        });
+    if (gameComplete && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(prev => prev - 1);
       }, 500);
       
-      // Auto-proceed to next round after 2 seconds
-      const timer = setTimeout(() => {
-        startNewRound();
-      }, 2000);
+      // Auto-proceed to next round when countdown reaches 0
+      if (countdown === 1) {
+        setTimeout(() => {
+          handleNextRound();
+        }, 500);
+      }
       
-      return () => {
-        clearTimeout(timer);
-        clearInterval(countdownInterval);
-      };
+      return () => clearTimeout(timer);
     }
-  }, [selectedEquations, equations, targetNumber, gameStarted, showSummary]);
-
-  // JSX return
+  }, [gameComplete, countdown, setCountdown]);
+  
+  // Game setup config
+  const setupFields = [
+    {
+      type: 'number',
+      name: 'targetNumber',
+      label: 'Choose a target number:',
+      emoji: '🎯',
+      min: 5,
+      max: 50,
+      placeholder: 'Enter a number (5-50)',
+      hint: 'Recommended: 5-10 for younger children, 10-20 for more challenge',
+      required: true
+    },
+    {
+      type: 'radio',
+      name: 'operationType',
+      label: 'Choose operation type:',
+      emoji: '🧮',
+      options: [
+        { value: 'addition', label: 'Addition only', icon: '➕' },
+        { value: 'subtraction', label: 'Subtraction only', icon: '➖' },
+        { value: 'both', label: 'Both operations', icon: '🔣' }
+      ]
+    },
+    {
+      type: 'optionCount',
+      name: 'optionCount',
+      label: 'Number of equations:',
+      emoji: '🔢'
+    }
+  ];
+  
+  // Initial values
+  const initialValues = {
+    targetNumber: '10',
+    operationType: 'addition',
+    optionCount: 6
+  };
+  
+  // Handle game start
+  const handleStartGame = (values) => {
+    console.log('Starting Equation Finder game with values:', values);
+    
+    // Convert string values to appropriate types and ensure required values are present
+    const gameSettings = {
+      targetNumber: parseInt(values.targetNumber) || 10,
+      operationType: values.operationType || 'addition',
+      optionCount: parseInt(values.optionCount) || 6
+    };
+    
+    console.log('Game settings prepared:', gameSettings);
+    
+    // Start the game with these settings
+    actions.startGame(gameSettings);
+    
+    // Set local playing state
+    setIsPlaying(true);
+    
+    // Reset initialization ref
+    initRef.current = false;
+    
+    // Initialize the game after settings are available
+    setTimeout(() => {
+      try {
+        const success = initGame();
+        console.log('Equation Finder game initialization success:', success);
+        initRef.current = true;
+      } catch (error) {
+        console.error('Error initializing game:', error);
+      }
+    }, 100);
+  };
+  
+  // Handle showing game summary
+  const handleFinish = () => {
+    actions.showGameSummary();
+  };
+  
+  // Handle resuming game
+  const handleResume = () => {
+    actions.hideGameSummary();
+  };
+  
+  // Handle restarting game
+  const handleRestart = () => {
+    setIsPlaying(false);
+    actions.endGame();
+    initRef.current = false;
+  };
+  
+  // Sync our local playing state with gameStarted
+  useEffect(() => {
+    if (!gameStarted && isPlaying) {
+      setIsPlaying(false);
+    } else if (gameStarted && !isPlaying) {
+      setIsPlaying(true);
+    }
+  }, [gameStarted, isPlaying]);
+  
   return (
     <div className="flex flex-col items-center min-h-screen bg-blue-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
-        {!gameStarted ? (
-          <>
-            <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">🔢 Equation Finder Challenge 🧠</h1>
-            <div className="flex flex-col gap-4">
-              <label className="text-lg font-medium">
-                Choose a target number: 🎯
-                <input
-                  type="number"
-                  min="5"
-                  value={inputTarget}
-                  onChange={(e) => {
-                    setInputTarget(e.target.value);
-                    setInputError('');
-                  }}
-                  className={`w-full p-2 mt-2 border-2 ${inputError ? 'border-red-500' : 'border-blue-300'} rounded-lg text-xl text-gray-700 bg-white`}
-                  placeholder={`Enter a number (default: ${randomDefault})`}
-                />
-              </label>
-              {inputError && (
-                <p className="text-red-500 text-sm mt-1">{inputError}</p>
-              )}
-              <p className="text-sm text-gray-600 -mt-2">
-                Recommended: 5-10 for younger children, 10-20 for more challenge
-              </p>
-              
-              <div className="mt-4">
-                <p className="text-lg font-medium mb-2">Choose operation type: 🧮</p>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="operationType"
-                      value="addition"
-                      checked={operationType === 'addition'}
-                      onChange={() => setOperationType('addition')}
-                      className="mr-2"
-                    />
-                    <span className="text-lg">➕ Addition only</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="operationType"
-                      value="subtraction"
-                      checked={operationType === 'subtraction'}
-                      onChange={() => setOperationType('subtraction')}
-                      className="mr-2"
-                    />
-                    <span className="text-lg">➖ Subtraction only</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="operationType"
-                      value="both"
-                      checked={operationType === 'both'}
-                      onChange={() => setOperationType('both')}
-                      className="mr-2"
-                    />
-                    <span className="text-lg">🔣 Both operations</span>
-                  </label>
-                </div>
+      {!isPlaying ? (
+        <GameSetup
+          title="Equation Finder Challenge"
+          logoEmoji="🔢"
+          fields={setupFields}
+          initialValues={initialValues}
+          onStart={handleStartGame}
+        />
+      ) : (
+        <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-xl text-center mb-4">
+            {currentProblem ? (
+              <span>Find all equations that equal <span className="font-bold text-2xl text-blue-700">🎯 {currentProblem.targetNumber}</span></span>
+            ) : (
+              <span className="text-gray-400">Preparing your game...</span>
+            )}
+          </h2>
+          
+          {/* Stats Tracker Component */}
+          <StatsTracker 
+            stats={stats}
+            showSummary={showSummary}
+            onFinish={handleFinish}
+            onResume={handleResume}
+            onRestart={handleRestart}
+          />
+          
+          {!showSummary && equations && equations.length > 0 && !isTransitioning ? (
+            <>
+              {/* Grid layout for equations */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {equations.map((eq) => (
+                  <button
+                    key={eq.id}
+                    onClick={() => handleEquationClick(eq.id)}
+                    className={`p-3 rounded-lg text-md font-medium ${
+                      selectedEquations.includes(eq.id)
+                        ? 'bg-green-500 text-white'
+                        : wrongEquations.includes(eq.id)
+                          ? 'bg-red-500 text-white'
+                          : 'bg-blue-200 hover:bg-blue-300'
+                    }`}
+                    style={{
+                      transform: !selectedEquations.includes(eq.id) && animatingCorrect ? 'scale(0)' : 'scale(1)',
+                      opacity: !selectedEquations.includes(eq.id) && animatingCorrect ? 0 : 1,
+                      transition: 'transform 0.5s ease, opacity 0.5s ease, background-color 0.3s ease'
+                    }}
+                    disabled={selectedEquations.includes(eq.id)}
+                  >
+                    {eq.equation}
+                  </button>
+                ))}
               </div>
               
-              <OptionCountSelector
-                value={optionCount}
-                onChange={setOptionCount}
-                recommendedValue={recommendedCount}
-                label="Number of equations:"
-                emoji="🔢"
-              />
-              
-              <button
-                onClick={startGame}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors mt-4"
-              >
-                Start Game 🚀
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <h2 className="text-xl text-center mb-4">
-              Find all equations that equal <span className="font-bold text-2xl text-blue-700">🎯 {targetNumber}</span>
-            </h2>
-            
-            {/* Stats Tracker Component */}
-            <StatsTracker 
-              stats={gameStats}
-              showSummary={showSummary}
-              onFinish={handleFinish}
-              onResume={handleResume}
-              onRestart={handleRestart}
-            />
-            
-            {!showSummary && (
-              <>
-                {/* Always using 3 columns grid layout */}
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                  {equations.map((eq) => (
-                    <button
-                      key={eq.id}
-                      onClick={() => handleEquationClick(eq.id, eq.sum)}
-                      className={`p-3 rounded-lg text-md font-medium ${
-                        selectedEquations.includes(eq.id)
-                          ? 'bg-green-500 text-white'
-                          : wrongEquations.includes(eq.id)
-                            ? 'bg-red-500 text-white'
-                            : 'bg-blue-200 hover:bg-blue-300'
-                      }`}
-                      style={{
-                        transform: !selectedEquations.includes(eq.id) && animatingCorrect ? 'scale(0)' : 'scale(1)',
-                        opacity: !selectedEquations.includes(eq.id) && animatingCorrect ? 0 : 1,
-                        transition: 'transform 0.5s ease, opacity 0.5s ease, background-color 0.3s ease'
-                      }}
-                      disabled={selectedEquations.includes(eq.id)}
-                    >
-                      {eq.equation}
-                    </button>
-                  ))}
-                </div>
-                
-                {gameComplete && (
-                  <div className="mt-4 flex flex-col gap-4">
-                    <div className="bg-green-100 p-4 rounded-lg text-center">
-                      <p className="text-lg font-bold text-green-700">🎉 Great job! You found all equations! 🌟</p>
-                    </div>
-                    <button
-                      onClick={startNewRound}
-                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors relative overflow-hidden"
-                    >
-                      <span>⏭️ Next Round ({countdown})</span>
-                      <div 
-                        className="absolute bottom-0 left-0 h-1 bg-yellow-300" 
-                        style={{ 
-                          width: `${(countdown / 2) * 100}%`,
-                          transition: 'width 0.5s linear'
-                        }}
-                      ></div>
-                    </button>
+              {gameComplete && (
+                <div className="mt-4 flex flex-col gap-4">
+                  <div className="bg-green-100 p-4 rounded-lg text-center">
+                    <p className="text-lg font-bold text-green-700">🎉 Great job! You found all equations! 🌟</p>
                   </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
+                  <div
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors relative overflow-hidden text-center"
+                  >
+                    <span>⏭️ Next Round ({countdown})</span>
+                    <div 
+                      className="absolute bottom-0 left-0 h-1 bg-yellow-300" 
+                      style={{ 
+                        width: `${(countdown / 2) * 100}%`,
+                        transition: 'width 0.5s linear'
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : !showSummary && (
+            <div className="flex justify-center items-center h-40">
+              <div className="text-blue-500 text-lg animate-pulse">
+                {isTransitioning ? "Loading next round..." : "Loading game..."}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -1,0 +1,118 @@
+/* QuickCalc Game Styles */
+
+.quick-calc-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .equation-display {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+  
+  .answer-input {
+    width: 150px;
+    height: 80px;
+    font-size: 2rem;
+    text-align: center;
+    border: 3px solid #3b82f6;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+  }
+  
+  .answer-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+  
+  .answer-input.correct {
+    border-color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+  }
+  
+  .answer-input.wrong {
+    border-color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+  
+  .submit-button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.125rem;
+    font-weight: bold;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .submit-button:hover {
+    background-color: #2563eb;
+  }
+  
+  .submit-button:active {
+    background-color: #1d4ed8;
+  }
+  
+  .timer-display {
+    margin-top: 1rem;
+    color: #6b7280;
+  }
+  
+  .warning-text {
+    color: #ef4444;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+  
+  .feedback-icon {
+    position: absolute;
+    font-size: 3rem;
+    animation: bounce 0.6s;
+    pointer-events: none;
+  }
+  
+  .feedback-icon.correct {
+    color: #10b981;
+  }
+  
+  .feedback-icon.wrong {
+    color: #ef4444;
+  }
+  
+  @keyframes bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+  
+  /* Remove spinner from number input */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
